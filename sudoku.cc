@@ -11,6 +11,10 @@ using namespace std;
 
 #include "sudoku.hh"
 
+int debug = 0;
+// printDebug(string) { if (debug>1) printf(string); }
+// DEBUG(A) do { if (debug>1) printf(A); } while(0)
+
 void assert( bool test )
 {
   if( test == true ) return;
@@ -246,20 +250,20 @@ void Spot::init()
 };
 void Spot::setDetermined( uint_32 uint )
 {
-  if( uint == 0 ) return;
   m_determined.equalNone();  // exclusive
-  m_determined.equalVal( uint );
+  if( uint == 0 ) return;
   m_possible.equalNone();  // exclusive
+  m_determined.equalVal( uint );
   m_possible.equalVal( uint );
   m_excluded.setAll();
   m_excluded.clearVal( uint );
 };
 void Spot::setDetermined( Value val )
 {
-  if( val == none ) return;
   m_determined.equalNone();  // exclusive
-  m_determined.equalVal( val );
+  if( val == none ) return;
   m_possible.equalNone();  // exclusive
+  m_determined.equalVal( val );
   m_possible.equalVal( val );
   m_excluded.setAll();
   m_excluded.clearVal( val );
@@ -307,6 +311,7 @@ Board::Board()
 Board::~Board()
 {
 };
+// This is the CSV format as opposed to the printout format
 const char* example1 =
 "0,0,5, 0,0,0, 0,0,6,\
  0,0,0, 8,0,0, 0,0,0,\
@@ -320,6 +325,7 @@ const char* example1 =
  5,0,0, 7,9,0, 0,6,0,\
  0,0,4, 0,3,5, 0,0,2,\
 ";
+// This reads the CSV format
 void Board::loadGame1( const char* ccsv )
 {
   printf("%s %s\n",__FUNCTION__ , ccsv );
@@ -353,7 +359,8 @@ void Board::loadGame1( const char* ccsv )
 	}
     }
 }
-void Board::loader( char(*foo)(void) ) 
+// This reads the printout format
+void Board::loader( FILE *file, char(*function)(FILE *file) )
 {
   for( int row=1; row<10; row++ ) 
     {
@@ -363,7 +370,8 @@ void Board::loader( char(*foo)(void) )
 	  while( !foundone )
 	    {
 	      uint_32 num=0;
-	      char c = foo(); 
+	      char c = function(file); 
+	      //printf("%s row %d col %d %c\n",__FUNCTION__ , row, col, c );
 	      switch( c ) {
 	      case '0':
 	      case '1':
@@ -382,39 +390,48 @@ void Board::loader( char(*foo)(void) )
 		}
 		break;
 	      case ' ':
-	      case ',':
+	      case '|':
+	      case '-':
 	      case '\n':
 	      case '\f':
 		break;
 	      default:
 		cout << " bad char\n";
+		return;
 		break;
 	      }
 	    }
 	}
     }
 }
-static char getCharFromStdin( void )
+static char readin( FILE* file )
 {
   char c;
-  cin >> c;
+  if (file == NULL) {
+    cin >> c;
+  } else {
+    fread(&c, 1, 1, file);
+  }
   return c;
 }
-void Board::loadGame( ) // from stdin
+// not really useful?
+void Board::loadGameFromStdin( ) // from stdin
 {
-  loader( &getCharFromStdin );
+  loader( NULL, readin );
 }
-static char getCharFromString( const char* ccsv )
+void Board::loadGameFromFile( const char* filename )
 {
-  static const char *csv = ccsv;
-  char c = *csv++;
-  return c;
-}
-void Board::loadGame( const char* ccsv )
-{
-  //loader( &getCharFromString(ccsv) );
+  FILE* file = fopen( filename, "r+" );
+  if( file == NULL ) {
+    printf( "%s error\n", __FUNCTION__ );
+    return;
+  }
+  loader( file, readin );
+  fclose( file );
 }
 
+
+// obsolete
 void Board::saveGameToStdout1( )
 {
   for( int row=1; row<10; row++ )
@@ -441,6 +458,8 @@ void Board::saveGameToStdout1( )
     }
   cout << "\n";
 }
+// used for save to file and save to stdout
+// thie produces the printout format for showing a board
 void Board::saver( FILE *file, int(*function)(FILE*, const char*) )
 {
   for( int row=1; row<10; row++ )
@@ -469,29 +488,30 @@ void Board::saver( FILE *file, int(*function)(FILE*, const char*) )
     }
   function ( file, "\n" );
 }
+// or put this in Board:: and pass file in class
 int printout( FILE *file, const char* str )
 {
-  if( file != NULL )
+  if( file != NULL ) {
+    //printf( "%s",str );
     return fprintf( file, "%s",str );
+  }
 
   return printf( "%s",str );
 }
+// not really useful?
 void Board::saveGameToStdout( )
 {
   saver( NULL, printout );
 }
-void Board::saveGameToFilename( const char* filename )
+void Board::saveGameToFile( const char* filename )
 {
-  //int fd = open( filename, O_RDWR | O_CREAT | O_EXCL );
-  //if( fd < 0 ) {
-
   FILE* file = fopen( filename, "w+" );
   if( file == NULL ) {
     printf( "%s error\n", __FUNCTION__ );
     return;
   }
-  
   saver( file, printout ); 
+  fclose( file );
 }
 void Board::printSpot( Spot::State state, Value val, int row, int col )
 {
@@ -545,6 +565,7 @@ void Board::printByValue( Spot::State state, Value val )
     }
   printf("\n");
 }
+// This produces the printout format for showing a board
 void Board::printDetermined( Value val )
 {
   printByValue( Spot::Determined, val );
@@ -663,6 +684,8 @@ void Board::excludeSquareByValue( int rrow, int ccol, Value val )
     }
 
 }
+/* Exclude values because of existing knowns - do by row, column, square
+ */
 void Board::algorithm1()
 {
   for( int row=1; row<10; row++ )
@@ -670,6 +693,7 @@ void Board::algorithm1()
       for( int col=1; col<10; col++ )
 	{
 	  List list = board[row][col].getDetermined();
+	  //printf("%s val %d row %d col %d\n", __FUNCTION__, makeIntFromList(list), row, col);
 	  if( list.andVal( all) )
 	    {
 	      excludeRowByValue( row, col, makeValFromList( list ) );
@@ -732,49 +756,51 @@ void Board::findTwoInSquare()
       // upper left square
       found = checkSquareForTwo(1,4,1,4,valint);
       if( found )
-	printf( "two in upper left\n");
+	printf( "two %d in upper left\n",valint);
 
       // upper middle square
       found = checkSquareForTwo(1,4,4,7,valint);
       if( found )
-	printf( "two in upper middle\n");
+	printf( "two %d in upper middle\n",valint);
 
       // upper right square
       found = checkSquareForTwo(1,4,7,10,valint);
       if( found )
-	printf( "two in upper right\n");
+	printf( "two %d in upper right\n",valint);
 
       // middle left square
       found = checkSquareForTwo(4,7,1,4,valint);
       if( found )
-	printf( "two in middle left\n");
+	printf( "two %d in middle left\n",valint);
 
       // middle middle square
       found = checkSquareForTwo(4,7,4,7,valint);
       if( found )
-	printf( "two in middle middle\n");
+	printf( "two %d in middle middle\n",valint);
 
       // middle right square
       found = checkSquareForTwo(4,7,7,10,valint);
       if( found )
-	printf( "two in middle right\n");
+	printf( "two %d in middle right\n",valint);
 
       // lower left square
       found = checkSquareForTwo(7,10,1,4,valint);
       if( found )
-	printf( "two in lower left\n");
+	printf( "two %d in lower left\n",valint);
 
       // lower middle square
       found = checkSquareForTwo(7,10,4,7,valint);
       if( found )
-	printf( "two in lower middle\n");
+	printf( "two %d in lower middle\n",valint);
 
       // lower right square
       found = checkSquareForTwo(7,10,7,10,valint);
       if( found )
-	printf( "two in lower right\n");
+	printf( "two %d in lower right\n",valint);
     }
 }
+/* Check for two of the same value in a square
+ */
 void Board::algorithm2()
 {
   findTwoInSquare();
@@ -782,12 +808,16 @@ void Board::algorithm2()
 
 void printUsage(void)
 {
+  cout << "L <game>       -load a game from file <game>\n";
+  cout << "S <save>       -save current position to file <save>\n";
   cout << "p n            -print the possible positions for n\n";
   cout << "e n            -print the excluded positions for n\n";
   cout << "d              -print the determined values\n";
-  cout << "a              -run the exclusion algorithms\n";
+  cout << "a [1|2]        -run the exclusion algorithms\n";
+  cout << "  1             exclude by row, column, square  \n";
+  cout << "  2             find two in squares \n";
   cout << "s n row col    -set <row,col> to be n\n";
-  cout << "  n is 0-9 where 0 means empty\n";
+  cout << "  n             is 0-9 where 0 means empty\n";
 }
 int main(int argc, char** argv)
 {
@@ -795,8 +825,9 @@ int main(int argc, char** argv)
 
   Board* game = new Board();
 
+  // default starting game
   // this should become redundant when load & save to file work
-  game->loadGame1( example1 );
+  //game->loadGame1( example1 );
 
   char cmd, opt;
   bool stop = false;
@@ -807,10 +838,14 @@ int main(int argc, char** argv)
       case 'a':
         cin >> opt;
 	cout << " algorithm " << opt << "\n"; 
-	if( opt == 1 )
+	switch( opt ) {
+	case '1':
 	  game->algorithm1();
-	if( opt == 2)
+	  break;
+	case '2':
 	  game->algorithm2();
+	  break;
+	}
 	break;
       case 'd':
 	cout << " determined " << "\n"; 
@@ -852,9 +887,12 @@ int main(int argc, char** argv)
 	}
 	break;
       case 'L':
-	  cin >> opt;
-	  cout << " file " << opt << "\n"; 
-	  //loadGame( opt );
+	{
+	  string gamestr;
+	  cin >> gamestr;
+	  cout << " file " << gamestr << "\n"; 
+	  game->loadGameFromFile( (const char*) gamestr.data() );
+	}
 	break;
       case 'p':
 	{
@@ -905,25 +943,34 @@ int main(int argc, char** argv)
 	break;
       case 'S':
 	/*
+	// Need way to check if cin is null/EOF
 	{
 	  char namebuf[64];
 	  scanf("%s", namebuf);
 
 	  if( strlen( namebuf ) > 0 )
-	    game->saveGameToFilename( (const char *)namebuf );
+	    game->saveGameToFile( (const char *)namebuf );
+	  else
+	    game->saveGameToStdout( );
+	}
+	// this requires filename of length 1
+	{
+	  string savestr;
+	  cin >> savestr;
+	  cout << savestr << " " << savestr.size() << "\n";;
+	  if( savestr.length() > 1 )
+	    game->saveGameToFile( (const char *) savestr.data() );
 	  else
 	    game->saveGameToStdout( );
 	}
 	*/
 	{
-	  string namestr;
-	  cin >> namestr;
-	  //cout << namestr << " " << namestr.size() << "\n";;
-	  if( namestr.length() > 1 )
-	    game->saveGameToFilename( (const char *) namestr.data() );
-	  else
-	    game->saveGameToStdout( );
+	  string savestr;
+	  cin >> savestr;
+	  cout << "save file " << savestr << "\n";;
+	  game->saveGameToFile( (const char *) savestr.data() );
 	}
+
 	break;
       case 'q':
 	stop = true;

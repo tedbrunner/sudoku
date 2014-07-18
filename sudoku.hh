@@ -98,15 +98,14 @@ public:
   Board();
   ~Board();
 
-  void loadGame1( const char* csv );
-  void loadGame( const char* csv );
-  void loadGame( FILE* file );
-  void loadGame( ); // stdin
-  void loader( char(*foo)(void) );
+  void loadGame1( const char* csv ); // preloaded default game
+  void loadGameFromStdin( );
+  void loadGameFromFile( const char* filename );
+  void loader( FILE *file, char(*function)(FILE *file) );
 
   void saveGameToStdout1( );
   void saveGameToStdout( );
-  void saveGameToFilename( const char* name );
+  void saveGameToFile( const char* filename );
   void saver( FILE *file, int(*function)(FILE *file, const char*) );
 
   void printSpot( Spot::State state, Value val, int row, int col );

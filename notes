@@ -1,0 +1,86 @@
+Sudoku
+
+game is 9x9 spots
+game has 9 of 3x3 squares of spots 
+9 values
+each spot can be either
+- one "determined" value eg. at start
+- unknown and up to 9 "possible" values
+
+
+view 1
+- 9 separate "levels" for each value where each spots of the 9x9 can be 
+-- "determined" to be that value, display as solid
+-- "possible" to be that value, display as greyed out
+-- "excluded" from that value, display as blank
+   view that level: spot is either determined, possible, excluded 
+view 2
+- one "columnar" where each spot of the 9x9 is either
+-- a "determined" value
+-- a "list" of possible values
+view 3
+- one "game" where each spot of the 9x9 is either
+-- a "determined" value
+-- no display
+
+initialize
+for each value
+ for each spot
+  set to possible
+input starting position
+ for each starting value
+  go to that spot and level
+   set that spot to determined
+
+algorithm 1 "exclude by 1" or "It is there so it can't be here."
+for each of 9 values/levels
+ for each determined spot
+   remove the possibles along that row - each other spot becomes excluded
+   remove the possibles along that column - each other spot becomes excluded
+   remove the possibles within that square - each other spot becomes excluded
+
+algorithm 2 "exclude by 2" or "It is in that square in one of two spots, so it can't be here."
+ for each of the 9 values
+  for each square
+   if only two possibles of a value
+    if both in a row, remove the possibles along that row, outside of the square
+    if both in a column, remove the possibles along that column, outside of the square
+algorithm 2b - extend from two to three
+
+algorithm 4 - "It must be in that row/column somewhere"
+ for each row (and again for each column)
+  how many spots un-determined?  less than 3 or 4?
+  create list of unassigned values (eg. 2,5,9)
+  for each undetermined spot in this row (and again for column)
+   for each unassigned value - can it go here?
+    check for exclusion from column and square (and again for row and square)
+     mark as possible or excluded
+  for each unassigned value on this row - is there only one possible spot in row?
+   set value as determined in this spot
+
+
+****
+algorithm 3 "convert"
+for each of the 9 values/levels
+ for each of 9 squares
+  sum the states of all 9 spots
+   evaluate the summary
+
+   evaluation criteria
+   if more than one spot is determined, error
+   if only one spot is determined, continue
+   if only one spot is possible, CONVERT it to determined, and log(determined)
+   if two spots are possible, log(what else deb and I should mark)
+   otherwise, continue
+
+algorithm 2b
+ for each of 9 rows
+  sum the states of all 9 spots
+   evaluate the summary
+
+algorithem 2c
+ for each of 9 columns
+  sum the states of all 9 spots
+   evaluate the summary
+
+
